@@ -3055,21 +3055,38 @@ function renderDynamicDataCoreLedger() {
         );
 
 
+    /* ================================================================
+    * PAY DOWN WITH PHONE
+    *
+    * IMPORTANT:
+    * This section is ONLY:
+    *
+    * *Pay down with phone=
+    *
+    * It must NOT match:
+    *
+    * *Used pay down with phone=
+    * ================================================================ */
+
     const paydownBlock =
         text.match(
-            new RegExp(
-                `\\*Pay down with phone=([\\s\\S]*?)${sectionEndBoundary}`,
-                "i"
-            )
+            /\*\s*(?!Used\s+pay\s+down\s+with\s+phone\b)Pay\s+down\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*\s*Used\s+pay\s+down\s+with\s+phone\s*=|\*{1,2}\s*[A-Za-z][^=\n:]*\s*[:=]|$)/i
         );
 
 
+    /* ================================================================
+    * USED PAY DOWN WITH PHONE
+    *
+    * This section is ONLY:
+    *
+    * *Used pay down with phone=
+    *
+    * It can NEVER become normal Pay Down.
+    * ================================================================ */
+
     const usedPaydownBlock =
         text.match(
-            new RegExp(
-                `\\*Used pay down with phone=([\\s\\S]*?)${sectionEndBoundary}`,
-                "i"
-            )
+            /\*\s*Used\s+pay\s+down\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*{1,2}\s*[A-Za-z][^=\n:]*\s*[:=]|$)/i
         );
 
 
