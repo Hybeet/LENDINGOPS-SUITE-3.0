@@ -3302,158 +3302,24 @@ function renderDynamicDataCoreLedger() {
                 : ""
         );
 
-    function calculateDataCoreRepaymentDay(
-        disbursementDate,
-        reportDate
-    ) {
 
-        if (
-            !disbursementDate ||
-            !reportDate
-        ) {
-            return 0;
-        }
-
-        function parseDate(value) {
-
-            if (
-                Object.prototype.toString.call(value) ===
-                "[object Date]"
-            ) {
-
-                if (isNaN(value.getTime())) {
-                    return null;
-                }
-
-                return new Date(
-                    value.getFullYear(),
-                    value.getMonth(),
-                    value.getDate()
-                );
-            }
-
-            const text =
-                String(value)
-                    .trim();
-
-            if (!text) {
-                return null;
-            }
-
-            /*
-            * Extract DD/MM/YYYY or D/M/YY
-            */
-            const match =
-                text.match(
-                    /(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/
-                );
-
-            if (!match) {
-                return null;
-            }
-
-            let day =
-                Number(match[1]);
-
-            let month =
-                Number(match[2]);
-
-            let year =
-                Number(match[3]);
-
-            if (year < 100) {
-                year += 2000;
-            }
-
-            const result =
-                new Date(
-                    year,
-                    month - 1,
-                    day
-                );
-
-            if (
-                result.getFullYear() !== year ||
-                result.getMonth() !== month - 1 ||
-                result.getDate() !== day
-            ) {
-                return null;
-            }
-
-            return result;
-        }
-
-
-        const startDate =
-            parseDate(disbursementDate);
-
-        const endDate =
-            parseDate(reportDate);
-
-
-        if (
-            !startDate ||
-            !endDate
-        ) {
-            return 0;
-        }
-
-
-        /*
-        * Compare calendar dates only.
-        */
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-
-
-        const differenceMs =
-            endDate.getTime() -
-            startDate.getTime();
-
-
-        /*
-        * Future disbursement.
-        */
-        if (differenceMs < 0) {
-            return 0;
-        }
-
-
-        /*
-        * IMPORTANT:
-        *
-        * Disbursement date itself = Day 1.
-        *
-        * Example:
-        *
-        * 08/08 → 08/08 = Day 1
-        * 08/08 → 09/08 = Day 2
-        * 08/08 → 28/08 = Day 21
-        */
-        return (
-            Math.floor(
-                differenceMs /
-                (1000 * 60 * 60 * 24)
-            ) + 1
-        );
-    }
-    
     appState.dataCore.loadedRecords
         .forEach((client, idx) => {
 
-            const processedDays =
-                calculateDataCoreRepaymentDay(
-                    client.disbursementDate,
-                    appState.dataCore.activeDate
+            let processedDays =
+                parseInt(
+                    client.activeRepaymentDays,
+                    10
                 );
 
-
-            const isWithinRepaymentCycle =
-                processedDays >= 1 &&
-                processedDays <= 25;
+            if (isNaN(processedDays)) {
+                processedDays = 0;
+            }
 
 
             const isOutstandingCust =
+                client.status ===
+                    "Outstanding Customer" ||
                 processedDays > 25;
 
 
