@@ -3334,10 +3334,253 @@ function renderDynamicDataCoreLedger() {
             }
 
 
-            const isOutstandingCust =
-                client.status ===
-                    "Outstanding Customer" ||
+            /* ================================================================
+            * LOAN / PAYMENT VALUES
+            * ================================================================ */
+
+            const principalAmount =
+                Number(client.principalAmount) || 0;
+
+            const totalAmountPaid =
+                Number(client.totalAmountPaid) || 0;
+
+
+            /* ================================================================
+            * CALCULATE ACTUAL CALENDAR DAYS FROM DISBURSEMENT
+            *
+            * This is deliberately calculated independently from
+            * client.status and activeRepaymentDays.
+            *
+            * This prevents an incorrectly classified DataCore record from
+            * receiving normal repayment + recovery.
+            * ================================================================ */
+
+            function parseFrontendDate(value) {
+
+                if (!value) {
+                    return null;
+                }
+
+                const valueString =
+                    String(value).trim();
+
+                if (!valueString) {
+                    return null;
+                }
+
+
+                /*
+                * ------------------------------------------------------------
+                * YYYY-MM-DD
+                * ------------------------------------------------------------
+                */
+
+                let match =
+                    valueString.match(
+                        /^(\d{4})-(\d{1,2})-(\d{1,2})$/
+                    );
+
+                if (match) {
+
+                    return new Date(
+                        Date.UTC(
+                            Number(match[1]),
+                            Number(match[2]) - 1,
+                            Number(match[3])
+                        )
+                    );
+                }
+
+
+                /*
+                * ------------------------------------------------------------
+                * DD/MM/YYYY OR MM/DD/YYYY
+                * ------------------------------------------------------------
+                */
+
+                match =
+                    valueString.match(
+                        /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/
+                    );
+
+                if (!match) {
+                    return null;
+                }
+
+
+                const first =
+                    Number(match[1]);
+
+                const second =
+                    Number(match[2]);
+
+                let year =
+                    Number(match[3]);
+
+
+                if (year < 100) {
+                    year += 2000;
+                }
+
+
+                let day;
+                let month;
+
+
+                /*
+                * 4/24/2026
+                *
+                * Clearly MM/DD/YYYY because 24 cannot be a month.
+                */
+
+                if (
+                    second > 12 &&
+                    first >= 1 &&
+                    first <= 12
+                ) {
+
+                    month = first;
+                    day = second;
+
+                }
+
+                /*
+                * 24/04/2026
+                *
+                * Clearly DD/MM/YYYY.
+                */
+
+                else if (
+                    first > 12 &&
+                    second >= 1 &&
+                    second <= 12
+                ) {
+
+                    day = first;
+                    month = second;
+
+                }
+
+                /*
+                * Ambiguous values follow the application's
+                * DD/MM/YYYY rule.
+                */
+
+                else {
+
+                    day = first;
+                    month = second;
+                }
+
+
+                return new Date(
+                    Date.UTC(
+                        year,
+                        month - 1,
+                        day
+                    )
+                );
+            }
+
+
+            /* ================================================================
+            * REPORT DATE
+            * ================================================================ */
+
+            const frontendReportDate =
+                parseFrontendDate(
+                    appState.dataCore.activeDate
+                );
+
+
+            /* ================================================================
+            * DISBURSEMENT DATE
+            * ================================================================ */
+
+            const frontendDisbursementDate =
+                parseFrontendDate(
+                    client.disbursementDate
+                );
+
+
+            /* ================================================================
+            * ACTUAL ELAPSED DAYS
+            * ================================================================ */
+
+            let actualLoanAgeDays = 0;
+
+
+            if (
+                frontendReportDate &&
+                frontendDisbursementDate
+            ) {
+
+                const millisecondsPerDay =
+                    24 * 60 * 60 * 1000;
+
+
+                actualLoanAgeDays =
+                    Math.floor(
+                        (
+                            frontendReportDate.getTime() -
+                            frontendDisbursementDate.getTime()
+                        ) /
+                        millisecondsPerDay
+                    );
+
+
+                if (
+                    actualLoanAgeDays < 0
+                ) {
+
+                    actualLoanAgeDays = 0;
+                }
+            }
+
+
+            /* ================================================================
+            * OUTSTANDING CUSTOMER
+            *
+            * IMPORTANT:
+            *
+            * For the normal repayment calculation, a customer is outstanding
+            * when:
+            *
+            *     loan age > 25 days
+            *     AND
+            *     principal has not been fully paid.
+            *
+            * We also retain DataCore's explicit Outstanding status as a
+            * fallback.
+            * ================================================================ */
+
+            const isBeyondRepaymentWindow =
+                actualLoanAgeDays > 25 ||
                 processedDays > 25;
+
+
+            const isNotFullyPaid =
+                principalAmount > 0 &&
+                totalAmountPaid < principalAmount;
+
+
+            const isOutstandingCust =
+                (
+                    isBeyondRepaymentWindow &&
+                    isNotFullyPaid
+                ) ||
+                client.status ===
+                    "Outstanding Customer";
+
+
+            /*
+            * IMPORTANT:
+            *
+            * Freeze the state BEFORE Recovery, Pay Down, Pay Off, etc.
+            */
+
+            const wasOutstandingCustomer =
+                isOutstandingCust;
 
 
             const isSettledLoan =
@@ -3356,7 +3599,7 @@ function renderDynamicDataCoreLedger() {
 
             let baseRepayment =
                 (
-                    isOutstandingCust ||
+                    wasOutstandingCustomer ||
                     isSettledLoan ||
                     isDisbursedToday
                 )
@@ -3394,7 +3637,7 @@ function renderDynamicDataCoreLedger() {
                 badgeClass =
                     "badge-future";
 
-            } else if (isOutstandingCust) {
+            } else if (wasOutstandingCustomer) {
 
                 badgeText =
                     "Outstanding Customer";
@@ -3595,8 +3838,40 @@ function renderDynamicDataCoreLedger() {
                         * ---------------------------------------------------------
                         */
 
-                        calculatedFinalRepayment +=
-                            extractedAmt;
+                        if (wasOutstandingCustomer) {
+
+                            /*
+                            * ============================================================
+                            * OUTSTANDING + RECOVERY
+                            * ============================================================
+                            *
+                            * Recovery is the ONLY collection for today.
+                            *
+                            * Example:
+                            *
+                            * Normal repayment = ₦6,000
+                            * Recovery         = ₦1,000
+                            *
+                            * Final collection = ₦1,000
+                            *
+                            * NOT ₦7,000.
+                            * ============================================================
+                            */
+
+                            calculatedFinalRepayment =
+                                extractedAmt;
+
+                        } else {
+
+                            /*
+                            * Normal active customer:
+                            *
+                            * Normal repayment + Recovery
+                            */
+
+                            calculatedFinalRepayment +=
+                                extractedAmt;
+                        }
 
 
                         hasNewActivity =
