@@ -3037,62 +3037,79 @@ function renderDynamicDataCoreLedger() {
         "\\*Record of Form|\\*Officer's Name*|$)";
 
 
+    /* ================================================================
+    * DEFAULT WITH PHONE
+    *
+    * ONLY matches:
+    *
+    * *Default with phone=
+    *
+    * Stops before the next major report section.
+    * ================================================================ */
+
     const defaultBlock =
         text.match(
-            new RegExp(
-                `\\*Default with phone=([\\s\\S]*?)${sectionEndBoundary}`,
-                "i"
-            )
+            /\*\s*Default\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*\s*(?:Recovery\s+with\s+phone|Disbursement|Previous\s+Pay\s+Down|Pay\s+down\s+with\s+phone|Used\s+pay\s+down\s+with\s+phone|Pay\s*off|Record\s+of\s+Form)|$)/i
         );
 
 
+    /* ================================================================
+    * RECOVERY WITH PHONE
+    *
+    * ONLY matches:
+    *
+    * *Recovery with phone=
+    *
+    * It CANNOT enter the Disbursement section or another section.
+    * ================================================================ */
+
     const recoveryBlock =
         text.match(
-            new RegExp(
-                `\\*Recovery with phone=([\\s\\S]*?)${sectionEndBoundary}`,
-                "i"
-            )
+            /\*\s*Recovery\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*\s*(?:Disbursement|Previous\s+Pay\s+Down|Pay\s+down\s+with\s+phone|Used\s+pay\s+down\s+with\s+phone|Pay\s*off|Default\s+with\s+phone|Record\s+of\s+Form)|$)/i
         );
 
 
     /* ================================================================
     * PAY DOWN WITH PHONE
     *
+    * ONLY matches normal Pay Down.
+    *
     * IMPORTANT:
-    * This section is ONLY:
-    *
-    * *Pay down with phone=
-    *
-    * It must NOT match:
-    *
-    * *Used pay down with phone=
+    * It cannot match "Used pay down with phone".
     * ================================================================ */
 
     const paydownBlock =
         text.match(
-            /\*\s*(?!Used\s+pay\s+down\s+with\s+phone\b)Pay\s+down\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*\s*Used\s+pay\s+down\s+with\s+phone\s*=|\*{1,2}\s*[A-Za-z][^=\n:]*\s*[:=]|$)/i
+            /\*\s*(?!Used\s+pay\s+down\s+with\s+phone\b)Pay\s+down\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*\s*Used\s+pay\s+down\s+with\s+phone\s*=|\*\s*(?:Default\s+with\s+phone|Recovery\s+with\s+phone|Disbursement|Previous\s+Pay\s+Down|Pay\s*off|Record\s+of\s+Form)|$)/i
         );
 
 
     /* ================================================================
     * USED PAY DOWN WITH PHONE
     *
-    * This section is ONLY:
+    * ONLY matches:
     *
     * *Used pay down with phone=
-    *
-    * It can NEVER become normal Pay Down.
     * ================================================================ */
 
     const usedPaydownBlock =
         text.match(
-            /\*\s*Used\s+pay\s+down\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*{1,2}\s*[A-Za-z][^=\n:]*\s*[:=]|$)/i
+            /\*\s*Used\s+pay\s+down\s+with\s+phone\s*=\s*([\s\S]*?)(?=\*\s*(?:Default\s+with\s+phone|Recovery\s+with\s+phone|Pay\s+down\s+with\s+phone|Disbursement|Previous\s+Pay\s+Down|Pay\s*off|Record\s+of\s+Form)|$)/i
         );
 
 
+    /* ================================================================
+    * PAY OFF / PAY OFF ANALYSIS
+    *
+    * ONLY matches the Payoff section.
+    *
+    * It cannot continue into Default, Recovery, Disbursement,
+    * Pay Down, Used Pay Down, or Record of Form.
+    * ================================================================ */
+
     const payoffBlock =
         text.match(
-            /\*Pay\s*off(?:\s+Analysis\s+(?:of|for)\s+today)?\s*=([\s\S]*?)(?=\*Default|\*Recovery|\*Pay down|\*Use pay down|\*Record of Form|$)/i
+            /\*\s*Pay\s*off(?:\s+Analysis\s+(?:of|for)\s+today)?\s*=\s*([\s\S]*?)(?=\*\s*(?:Default\s+with\s+phone|Recovery\s+with\s+phone|Pay\s+down\s+with\s+phone|Used\s+pay\s+down\s+with\s+phone|Disbursement|Previous\s+Pay\s+Down|Record\s+of\s+Form)|$)/i
         );
 
 
