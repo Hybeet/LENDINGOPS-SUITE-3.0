@@ -1947,7 +1947,6 @@ async function runCalculation() {
 
     const totalCash = (
         data.opening +
-        data.openingpd +
         data.frmoffice +
         data.suppose +
         data.recovery +
