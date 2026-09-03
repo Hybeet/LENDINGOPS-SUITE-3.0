@@ -3554,21 +3554,12 @@ function renderDynamicDataCoreLedger() {
             * fallback.
             * ================================================================ */
 
-            const isBeyondRepaymentWindow =
-                actualLoanAgeDays > 25 ||
-                processedDays > 25;
-
-
             const isNotFullyPaid =
                 principalAmount > 0 &&
                 totalAmountPaid < principalAmount;
 
 
             const isOutstandingCust =
-                (
-                    isBeyondRepaymentWindow &&
-                    isNotFullyPaid
-                ) ||
                 client.status ===
                     "Outstanding Customer";
 
@@ -8054,7 +8045,3 @@ function applyHistoricalAuditCorrection(
     });
 
 }
-
-/* =========================================================================
-   FRONTEND → BUSINESS PARSER → DATACORE TEST
-   ========================================================================= */
